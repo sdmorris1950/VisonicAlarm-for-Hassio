@@ -15,7 +15,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['visonicalarm2==3.2.0', 'python-dateutil==2.7.3']
+REQUIREMENTS = ['visonicalarm2==3.3.0', 'python-dateutil==2.7.3']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ CONFIG_SCHEMA = vol.Schema({
 
 
 def setup(hass, config):
-    """ Setup the Visonic Alarm component."""
+    """Setup the Visonic Alarm component."""
     from visonic import alarm as visonicalarm
     global HUB
     HUB = VisonicAlarmHub(config[DOMAIN], visonicalarm)
@@ -76,10 +76,10 @@ def setup(hass, config):
 
 
 class VisonicAlarmHub(Entity):
-    """ A Visonic Alarm hub wrapper class. """
+    """A Visonic Alarm hub wrapper class."""
 
     def __init__(self, domain_config, visonicalarm):
-        """ Initialize the Visonic Alarm hub. """
+        """Initialize the Visonic Alarm hub."""
 
         self.config = domain_config
         self._visonicalarm = visonicalarm
@@ -96,7 +96,7 @@ class VisonicAlarmHub(Entity):
                                          domain_config[CONF_PARTITION])
 
     def connect(self):
-        """ Setup a connection to the Visonic API server. """
+        """Set up a connection to the Visonic API server."""
         try:
             self.alarm.connect()
             return True
@@ -106,16 +106,16 @@ class VisonicAlarmHub(Entity):
 
     @property
     def last_update(self):
-        """ Return the last update timestamp. """
+        """Return the last update timestamp."""
         return self._last_update
 
     @Throttle(timedelta(seconds=10))
     def update(self):
-        """ Update all alarm statuses. """
+        """Update all alarm statuses."""
         try:
             if self.alarm.is_token_valid == False:
                 self.alarm.connect()
-            
+
             self.alarm.update_status()
             #self.alarm.update_alarms()
             #self.alarm.update_troubles()

@@ -1,6 +1,7 @@
 """
 Interfaces with the Visonic Alarm sensors.
 """
+
 import logging
 from datetime import timedelta
 
@@ -18,21 +19,21 @@ from . import HUB as hub
 
 _LOGGER = logging.getLogger(__name__)
 
-STATE_ALARM_ARMING_EXIT_DELAY_HOME = 'arming_exit_delay_home'
-STATE_ALARM_ARMING_EXIT_DELAY_AWAY = 'arming_exit_delay_away'
-STATE_ALARM_ENTRY_DELAY = 'entry_delay'
+STATE_ALARM_ARMING_EXIT_DELAY_HOME = "arming_exit_delay_home"
+STATE_ALARM_ARMING_EXIT_DELAY_AWAY = "arming_exit_delay_away"
+STATE_ALARM_ENTRY_DELAY = "entry_delay"
 
-STATE_ATTR_SYSTEM_NAME = 'system_name'
-STATE_ATTR_SYSTEM_SERIAL_NUMBER = 'serial_number'
-STATE_ATTR_SYSTEM_MODEL = 'model'
-STATE_ATTR_SYSTEM_READY = 'ready'
-STATE_ATTR_SYSTEM_ACTIVE = 'active'
-STATE_ATTR_SYSTEM_CONNECTED = 'connected'
+STATE_ATTR_SYSTEM_NAME = "system_name"
+STATE_ATTR_SYSTEM_SERIAL_NUMBER = "serial_number"
+STATE_ATTR_SYSTEM_MODEL = "model"
+STATE_ATTR_SYSTEM_READY = "ready"
+STATE_ATTR_SYSTEM_ACTIVE = "active"
+STATE_ATTR_SYSTEM_CONNECTED = "connected"
 
-CONTACT_ATTR_ZONE = 'zone'
-CONTACT_ATTR_NAME = 'name'
-CONTACT_ATTR_DEVICE_TYPE = 'device_type'
-CONTACT_ATTR_SUBTYPE = 'subtype'
+CONTACT_ATTR_ZONE = "zone"
+CONTACT_ATTR_NAME = "name"
+CONTACT_ATTR_DEVICE_TYPE = "device_type"
+CONTACT_ATTR_SUBTYPE = "subtype"
 
 SCAN_INTERVAL = timedelta(seconds=10)
 
@@ -48,6 +49,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                     "CONTACT" in device.subtype
                     or "MOTION" in device.subtype
                     or "CURTAIN" in device.subtype
+                    or "KEYFOB" in device.subtype
                 ):
                     _LOGGER.debug(
                         "New device found [Type:"
@@ -89,18 +91,20 @@ class VisonicAlarmContact(Entity):
             CONTACT_ATTR_ZONE: self._zone,
             CONTACT_ATTR_NAME: self._name,
             CONTACT_ATTR_DEVICE_TYPE: self._device_type,
-            CONTACT_ATTR_SUBTYPE: self._subtype
+            CONTACT_ATTR_SUBTYPE: self._subtype,
         }
 
     @property
     def icon(self):
         """Return icon."""
         icon = None
-        if "24H" in self._zone:
+        if not self._zone and "24H" in self._zone:
             if self._state == STATE_CLOSED:
                 icon = "mdi:hours-24"
-            elif self._state == STATE_OPEN:
+            else:
                 icon = "mdi:alarm-light"
+        elif "KEYFOB" in self._subtype:
+            icon = "mdi:key-outline"
         elif self._state == STATE_CLOSED:
             icon = "mdi:door-closed"
         elif self._state == STATE_OPEN:
