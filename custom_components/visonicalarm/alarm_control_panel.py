@@ -49,7 +49,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             return
 
         if entity_id == 'alarm_control_panel.visonic_alarm' and \
-                old_state.state != new_state.state:
+                ( old_state is None or old_state.state != new_state.state):
             visonic_alarm.update_state(new_state.state)
             if new_state.state in (AlarmControlPanelState.ARMED_HOME, AlarmControlPanelState.ARMED_AWAY, AlarmControlPanelState.DISARMED):
                 last_event = hub.alarm.get_last_event(
