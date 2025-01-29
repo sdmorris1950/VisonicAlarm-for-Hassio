@@ -16,6 +16,7 @@ from homeassistant.const import (
 from homeassistant.helpers.entity import Entity
 
 from . import HUB as hub
+from . import KEYFOB_DICT as keyfobs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ STATE_ATTR_SYSTEM_CONNECTED = "connected"
 CONTACT_ATTR_ZONE = "zone"
 CONTACT_ATTR_NAME = "name"
 CONTACT_ATTR_DEVICE_TYPE = "device_type"
+CONTACT_ATTR_DEVICE_NUMBER = "device_number"
 CONTACT_ATTR_SUBTYPE = "subtype"
 
 SCAN_INTERVAL = timedelta(seconds=10)
@@ -41,6 +43,8 @@ SCAN_INTERVAL = timedelta(seconds=10)
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the Visonic Alarm platform."""
     hub.update()
+
+    keyfobs.clear()
 
     for device in hub.alarm.devices:
         if device is not None:
@@ -58,6 +62,9 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                         + str(device.id)
                         + "]"
                     )
+                    if "KEYFOB" in device.subtype:
+                        key = "user " + str(device.device_number)
+                        keyfobs.update({key: device.name})
                     add_devices([VisonicAlarmContact(hub.alarm, device.id)], True)
 
 
@@ -72,6 +79,7 @@ class VisonicAlarmContact(Entity):
         self._name = None
         self._zone = None
         self._device_type = None
+        self._device_number = None
         self._subtype = None
 
     @property
@@ -87,12 +95,21 @@ class VisonicAlarmContact(Entity):
     @property
     def state_attributes(self):
         """Return the state attributes of the alarm system."""
-        return {
-            CONTACT_ATTR_ZONE: self._zone,
-            CONTACT_ATTR_NAME: self._name,
-            CONTACT_ATTR_DEVICE_TYPE: self._device_type,
-            CONTACT_ATTR_SUBTYPE: self._subtype,
-        }
+        if "KEYFOB" in self._subtype:
+            return {
+                CONTACT_ATTR_ZONE: self._zone,
+                CONTACT_ATTR_NAME: self._name,
+                CONTACT_ATTR_DEVICE_TYPE: self._device_type,
+                CONTACT_ATTR_DEVICE_NUMBER: self._device_number,
+                CONTACT_ATTR_SUBTYPE: self._subtype,
+            }
+        else:
+            return {
+                CONTACT_ATTR_ZONE: self._zone,
+                CONTACT_ATTR_NAME: self._name,
+                CONTACT_ATTR_DEVICE_TYPE: self._device_type,
+                CONTACT_ATTR_SUBTYPE: self._subtype,
+            }
 
     @property
     def icon(self):
@@ -133,11 +150,7 @@ class VisonicAlarmContact(Entity):
                 _LOGGER.warning("Device could not be found: %s", self._id)
                 return
 
-            if status == "opened":
-                self._state = STATE_OPEN
-            elif status == "closed":
-                self._state = STATE_CLOSED
-            elif "CURTAIN" in device.subtype or "MOTION" in device.subtype:
+            if "CURTAIN" in device.subtype or "MOTION" in device.subtype:
                 alarm_state = self._alarm.state
                 alarm_zone = device.zone
 
@@ -155,6 +168,18 @@ class VisonicAlarmContact(Entity):
                     self._state = STATE_ON
                 else:
                     self._state = STATE_UNKNOWN
+            elif "KEYFOB" in device.subtype:
+                self._state = STATE_CLOSED
+                self._device_number = device.device_number
+            elif "CONTACT" in device.subtype:
+                if status == "opened":
+                    self._state = STATE_OPEN
+                else:
+                    self._state = STATE_CLOSED
+            elif status == "opened":
+                self._state = STATE_OPEN
+            elif status == "closed":
+                self._state = STATE_CLOSED
             else:
                 self._state = STATE_UNKNOWN
 
