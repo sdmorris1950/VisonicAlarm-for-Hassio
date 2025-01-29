@@ -41,6 +41,7 @@ DEFAULT_PARTITION = 'ALL'
 DOMAIN = 'visonicalarm'
 
 HUB = None
+KEYFOB_DICT = {}
 
 CONFIG_SCHEMA = vol.Schema({
     DOMAIN: vol.Schema({
