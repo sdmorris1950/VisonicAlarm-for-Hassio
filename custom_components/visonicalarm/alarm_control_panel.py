@@ -12,7 +12,7 @@ from homeassistant.components.alarm_control_panel import (
 import homeassistant.components.persistent_notification as pn
 from homeassistant.const import ATTR_CODE_FORMAT, EVENT_STATE_CHANGED, STATE_UNKNOWN
 
-from . import CONF_EVENT_HOUR_OFFSET, CONF_NO_PIN_REQUIRED, CONF_USER_CODE, HUB as hub
+from . import CONF_EVENT_HOUR_OFFSET, CONF_NO_PIN_REQUIRED, CONF_USER_CODE, HUB as hub, KEYFOB_DICT as keyfobs
 
 SUPPORT_VISONIC = AlarmControlPanelEntityFeature.ARM_HOME | AlarmControlPanelEntityFeature.ARM_AWAY
 
@@ -48,14 +48,13 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         if new_state is None or new_state.state in (STATE_UNKNOWN, ''):
             return
 
-        if entity_id == 'alarm_control_panel.visonic_alarm' and \
-                ( old_state is None or old_state.state != new_state.state):
+        if entity_id == 'alarm_control_panel.visonic_alarm' and (
+            old_state is None or old_state.state != new_state.state
+        ):
             visonic_alarm.update_state(new_state.state)
             if new_state.state in (AlarmControlPanelState.ARMED_HOME, AlarmControlPanelState.ARMED_AWAY, AlarmControlPanelState.DISARMED):
-                last_event = hub.alarm.get_last_event(
-                    timestamp_hour_offset=visonic_alarm.event_hour_offset)
-                visonic_alarm.update_last_event(last_event['user'],
-                                                last_event['timestamp'])
+                last_event = hub.alarm.get_last_event(timestamp_hour_offset=visonic_alarm.event_hour_offset)
+                visonic_alarm.update_last_event(last_event["user"], last_event["timestamp"])
 
     hass.bus.listen(EVENT_STATE_CHANGED, arm_event_listener)
 
@@ -64,6 +63,7 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
     """Representation of a Visonic Alarm control panel."""
 
     _attr_code_arm_required = False
+
     def __init__(self, hass):
         """Initialize the Visonic Alarm panel."""
         self._hass = hass
@@ -149,7 +149,13 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
 
     def update_last_event(self, user, timestamp):
         """Update with the user and timestamp of the last state change."""
-        self._changed_by = user
+
+        if keyfobs is None or user.lower() not in keyfobs:
+            user_name = user
+        else:
+            user_name = keyfobs[user.lower()]
+
+        self._changed_by = user_name
         self._changed_timestamp = timestamp
 
     def update(self):
