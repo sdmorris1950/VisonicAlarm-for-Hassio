@@ -1,19 +1,15 @@
-"""
-Support for Visonic Alarm components.
-
-"""
+"""Support for Visonic Alarm components."""
+from datetime import datetime, timedelta
 import logging
 import threading
-from datetime import timedelta
-from datetime import datetime
 
 import voluptuous as vol
 
-from homeassistant.const import (CONF_HOST, CONF_NAME)
+from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.helpers import discovery
+import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
-import homeassistant.helpers.config_validation as cv
 
 REQUIREMENTS = ['visonicalarm2==3.3.0', 'python-dateutil==2.7.3']
 
@@ -60,7 +56,7 @@ CONFIG_SCHEMA = vol.Schema({
 
 
 def setup(hass, config):
-    """Setup the Visonic Alarm component."""
+    """Set up the Visonic Alarm component."""
     from visonic import alarm as visonicalarm
     global HUB
     HUB = VisonicAlarmHub(config[DOMAIN], visonicalarm)
@@ -114,7 +110,7 @@ class VisonicAlarmHub(Entity):
     def update(self):
         """Update all alarm statuses."""
         try:
-            if self.alarm.is_token_valid == False:
+            if self.alarm.is_token_valid is False:
                 self.alarm.connect()
 
             self.alarm.update_status()
@@ -130,5 +126,5 @@ class VisonicAlarmHub(Entity):
 
     @property
     def name(self):
-        """ Return the name of the hub."""
+        """Return the name of the hub."""
         return "Visonic Alarm Hub"
