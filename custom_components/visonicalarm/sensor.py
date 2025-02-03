@@ -1,10 +1,7 @@
-"""
-Interfaces with the Visonic Alarm sensors.
-"""
+"""Interfaces with the Visonic Alarm sensors."""
 
-import logging
 from datetime import timedelta
-
+import logging
 
 from homeassistant.const import (
     STATE_CLOSED,
@@ -15,8 +12,7 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.entity import Entity
 
-from . import HUB as hub
-from . import KEYFOB_DICT as keyfobs
+from . import HUB as hub, KEYFOB_DICT as keyfobs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,17 +30,22 @@ STATE_ATTR_SYSTEM_CONNECTED = "connected"
 CONTACT_ATTR_ZONE = "zone"
 CONTACT_ATTR_NAME = "name"
 CONTACT_ATTR_DEVICE_TYPE = "device_type"
-CONTACT_ATTR_DEVICE_NUMBER = "device_number"
 CONTACT_ATTR_SUBTYPE = "subtype"
+
+KEYFOB_ATTR_KEYFOB_NUMBER = "keyfob_number"
+KEYFOB_ATTR_LAST_TIME_USED = "last_time_used"
+KEYFOB_ATTR_LAST_OPERATION = "last_operation"
 
 SCAN_INTERVAL = timedelta(seconds=10)
 
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Setup the Visonic Alarm platform."""
+    """Set up the Visonic Alarm platform."""
     hub.update()
 
     keyfobs.clear()
+
+    events = hub.alarm.get_events(timestamp_hour_offset=hub.config["event_hour_offset"])
 
     for device in hub.alarm.devices:
         if device is not None:
@@ -55,16 +56,31 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                     or "CURTAIN" in device.subtype
                     or "KEYFOB" in device.subtype
                 ):
-                    _LOGGER.debug(
-                        "New device found [Type:"
-                        + str(device.subtype)
-                        + "] [ID:"
-                        + str(device.id)
-                        + "]"
-                    )
+                    _msg = f"New device found [Type:{device.subtype}] [ID:{device.id}]"
+                    _LOGGER.debug(_msg)
                     if "KEYFOB" in device.subtype:
-                        key = "user " + str(device.device_number)
-                        keyfobs.update({key: device.name})
+                        user = f"user {device.device_number}"
+
+                        last_time_used = None
+                        last_operation = None
+                        # get the last event for this keyfob
+                        for _event in events:
+                            if user == _event["appointment"].lower():
+                                last_time_used = _event["datetime"]
+                                last_operation = _event["description"]
+                                break
+
+                        keyfobs.update(
+                            {
+                                user: [
+                                    device.name,
+                                    device.id,
+                                    last_time_used,
+                                    last_operation,
+                                ]
+                            }
+                        )
+
                     add_devices([VisonicAlarmContact(hub.alarm, device.id)], True)
 
 
@@ -79,8 +95,10 @@ class VisonicAlarmContact(Entity):
         self._name = None
         self._zone = None
         self._device_type = None
-        self._device_number = None
+        self._keyfob_number = None
         self._subtype = None
+        self._last_time_used = None
+        self._last_operation = None
 
     @property
     def name(self):
@@ -93,6 +111,29 @@ class VisonicAlarmContact(Entity):
         return self._id
 
     @property
+    def keyfob_number(self):
+        """Return the keyfob number."""
+        return self._keyfob_number
+
+    @property
+    def last_time_used(self):
+        """Return a last time keyfob used."""
+        return self._last_time_used
+
+    # @last_time_used.setter
+    # def last_time_used(self, value):
+    #     self._last_time_used = value
+
+    @property
+    def last_operation(self):
+        """Return a last keyfob operation."""
+        return self._last_operation
+
+    # @last_operation.setter
+    # def last_operation(self, value):
+    #     self._last_operation = value
+
+    @property
     def state_attributes(self):
         """Return the state attributes of the alarm system."""
         if "KEYFOB" in self._subtype:
@@ -100,16 +141,17 @@ class VisonicAlarmContact(Entity):
                 CONTACT_ATTR_ZONE: self._zone,
                 CONTACT_ATTR_NAME: self._name,
                 CONTACT_ATTR_DEVICE_TYPE: self._device_type,
-                CONTACT_ATTR_DEVICE_NUMBER: self._device_number,
                 CONTACT_ATTR_SUBTYPE: self._subtype,
+                KEYFOB_ATTR_KEYFOB_NUMBER: self._keyfob_number,
+                KEYFOB_ATTR_LAST_TIME_USED: self._last_time_used,
+                KEYFOB_ATTR_LAST_OPERATION: self._last_operation,
             }
-        else:
-            return {
-                CONTACT_ATTR_ZONE: self._zone,
-                CONTACT_ATTR_NAME: self._name,
-                CONTACT_ATTR_DEVICE_TYPE: self._device_type,
-                CONTACT_ATTR_SUBTYPE: self._subtype,
-            }
+        return {
+            CONTACT_ATTR_ZONE: self._zone,
+            CONTACT_ATTR_NAME: self._name,
+            CONTACT_ATTR_DEVICE_TYPE: self._device_type,
+            CONTACT_ATTR_SUBTYPE: self._subtype,
+        }
 
     @property
     def icon(self):
@@ -170,7 +212,10 @@ class VisonicAlarmContact(Entity):
                     self._state = STATE_UNKNOWN
             elif "KEYFOB" in device.subtype:
                 self._state = STATE_CLOSED
-                self._device_number = device.device_number
+                self._keyfob_number = device.device_number
+                _user = f"user {device.device_number}"
+                self._last_time_used = keyfobs[_user][2]
+                self._last_operation = keyfobs[_user][3]
             elif "CONTACT" in device.subtype:
                 if status == "opened":
                     self._state = STATE_OPEN
