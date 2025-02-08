@@ -3,6 +3,8 @@
 from datetime import timedelta
 import logging
 
+from dateutil import parser
+
 from homeassistant.const import (
     STATE_CLOSED,
     STATE_OFF,
@@ -12,7 +14,7 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.entity import Entity
 
-from . import HUB as hub, KEYFOB_DICT as keyfobs
+from . import CONF_EVENT_HOUR_OFFSET, HUB as hub, KEYFOB_DICT as keyfobs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +47,8 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
     keyfobs.clear()
 
-    events = hub.alarm.get_events(timestamp_hour_offset=hub.config["event_hour_offset"])
+    events = hub.alarm.get_events()
+    timestamp_hour_offset = hub.config.get(CONF_EVENT_HOUR_OFFSET)
 
     for device in hub.alarm.devices:
         if device is not None:
@@ -66,7 +69,10 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                         # get the last event for this keyfob
                         for _event in events:
                             if user == _event["appointment"].lower():
-                                last_time_used = _event["datetime"]
+                                # Event timestamp
+                                dt = parser.parse(_event["datetime"])
+                                dt = dt + timedelta(hours=timestamp_hour_offset)
+                                last_time_used = dt.strftime("%Y-%m-%d %H:%M:%S")
                                 last_operation = _event["description"]
                                 break
 
@@ -189,7 +195,8 @@ class VisonicAlarmContact(Entity):
             status = device.state
 
             if status is None:
-                _LOGGER.warning("Device could not be found: %s", self._id)
+                _msg = f"Device could not be found: {self._id}"
+                _LOGGER.warning(_msg)
                 return
 
             if "CURTAIN" in device.subtype or "MOTION" in device.subtype:
@@ -238,6 +245,8 @@ class VisonicAlarmContact(Entity):
             self._device_type = device.device_type
             self._subtype = device.subtype
 
-            _LOGGER.debug("Device state updated to %d W", self._state)
+            _msg = f"Device state updated to {self._state}"
+            _LOGGER.debug(_msg)
         except OSError as error:
-            _LOGGER.warning("Could not update the device information: %s", error)
+            _msg = f"Could not update the device information: {error}"
+            _LOGGER.warning(_msg)
