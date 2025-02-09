@@ -1,4 +1,5 @@
 """Support for Visonic Alarm components."""
+
 from datetime import datetime, timedelta
 import logging
 import threading
@@ -58,6 +59,7 @@ CONFIG_SCHEMA = vol.Schema({
 def setup(hass, config):
     """Set up the Visonic Alarm component."""
     from visonic import alarm as visonicalarm
+
     global HUB
     HUB = VisonicAlarmHub(config[DOMAIN], visonicalarm)
     if not HUB.connect():
@@ -98,7 +100,8 @@ class VisonicAlarmHub(Entity):
             self.alarm.connect()
             return True
         except Exception as ex:
-            _LOGGER.error('Connection failed: %s', ex)
+            _msg = f"Connection failed: {ex}"
+            _LOGGER.error(_msg)
             return False
 
     @property
@@ -121,7 +124,8 @@ class VisonicAlarmHub(Entity):
 
             self._last_update = datetime.now()
         except Exception as ex:
-            _LOGGER.error('Update failed: %s', ex)
+            _msg = f"Update failed: {ex}"
+            _LOGGER.error(_msg)
             raise
 
     @property
