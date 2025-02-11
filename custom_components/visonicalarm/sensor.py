@@ -35,8 +35,6 @@ CONTACT_ATTR_DEVICE_TYPE = "device_type"
 CONTACT_ATTR_SUBTYPE = "subtype"
 
 KEYFOB_ATTR_KEYFOB_NUMBER = "keyfob_number"
-KEYFOB_ATTR_LAST_TIME_USED = "last_time_used"
-KEYFOB_ATTR_LAST_OPERATION = "last_operation"
 
 SCAN_INTERVAL = timedelta(seconds=10)
 
@@ -64,25 +62,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                     if "KEYFOB" in device.subtype:
                         user = f"user {device.device_number}"
 
-                        last_time_used = None
-                        last_operation = None
-                        # get the last event for this keyfob
-                        for _event in events:
-                            if user == _event["appointment"].lower():
-                                # Event timestamp
-                                dt = parser.parse(_event["datetime"])
-                                dt = dt + timedelta(hours=timestamp_hour_offset)
-                                last_time_used = dt.strftime("%Y-%m-%d %H:%M:%S")
-                                last_operation = _event["description"]
-                                break
-
                         keyfobs.update(
                             {
                                 user: [
                                     device.name,
-                                    device.id,
-                                    last_time_used,
-                                    last_operation,
+                                    device.id
                                 ]
                             }
                         )
@@ -103,8 +87,6 @@ class VisonicAlarmContact(Entity):
         self._device_type = None
         self._keyfob_number = None
         self._subtype = None
-        self._last_time_used = None
-        self._last_operation = None
 
     @property
     def name(self):
@@ -122,24 +104,6 @@ class VisonicAlarmContact(Entity):
         return self._keyfob_number
 
     @property
-    def last_time_used(self):
-        """Return a last time keyfob used."""
-        return self._last_time_used
-
-    # @last_time_used.setter
-    # def last_time_used(self, value):
-    #     self._last_time_used = value
-
-    @property
-    def last_operation(self):
-        """Return a last keyfob operation."""
-        return self._last_operation
-
-    # @last_operation.setter
-    # def last_operation(self, value):
-    #     self._last_operation = value
-
-    @property
     def state_attributes(self):
         """Return the state attributes of the alarm system."""
         if "KEYFOB" in self._subtype:
@@ -148,9 +112,7 @@ class VisonicAlarmContact(Entity):
                 CONTACT_ATTR_NAME: self._name,
                 CONTACT_ATTR_DEVICE_TYPE: self._device_type,
                 CONTACT_ATTR_SUBTYPE: self._subtype,
-                KEYFOB_ATTR_KEYFOB_NUMBER: self._keyfob_number,
-                KEYFOB_ATTR_LAST_TIME_USED: self._last_time_used,
-                KEYFOB_ATTR_LAST_OPERATION: self._last_operation,
+                KEYFOB_ATTR_KEYFOB_NUMBER: self._keyfob_number
             }
         return {
             CONTACT_ATTR_ZONE: self._zone,
@@ -220,20 +182,20 @@ class VisonicAlarmContact(Entity):
             elif "KEYFOB" in device.subtype:
                 self._state = STATE_CLOSED
                 self._keyfob_number = device.device_number
-                _user = f"user {device.device_number}"
-                self._last_time_used = keyfobs[_user][2]
-                self._last_operation = keyfobs[_user][3]
             elif "CONTACT" in device.subtype:
                 if status == "opened":
                     self._state = STATE_OPEN
                 else:
                     self._state = STATE_CLOSED
-            elif status == "opened":
-                self._state = STATE_OPEN
-            elif status == "closed":
-                self._state = STATE_CLOSED
             else:
-                self._state = STATE_UNKNOWN
+                _msg = f"Unrecognized device: {device.subtype}"
+                _LOGGER.debug(_msg)
+                if status == "opened":
+                    self._state = STATE_OPEN
+                elif status == "closed":
+                    self._state = STATE_CLOSED
+                else:
+                    self._state = STATE_UNKNOWN
 
             # orig_level = _LOGGER.level
             # _LOGGER.setLevel(logging.DEBUG)
@@ -245,7 +207,7 @@ class VisonicAlarmContact(Entity):
             self._device_type = device.device_type
             self._subtype = device.subtype
 
-            _msg = f"Device state updated to {self._state}"
+            _msg = f"Device {device.subtype}: state updated to {self._state}"
             _LOGGER.debug(_msg)
         except OSError as error:
             _msg = f"Could not update the device information: {error}"
