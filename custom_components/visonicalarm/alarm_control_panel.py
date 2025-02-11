@@ -168,15 +168,6 @@ class VisonicAlarm(alarm.AlarmControlPanelEntity):
             user_name = user
         else:
             user_name = keyfobs[user.lower()][0]
-            device_id = keyfobs[user.lower()][1]
-            _devs = hub.alarm.devices
-            for _dev in _devs:
-                if _dev.id == device_id:
-                    _dev.last_time_used = timestamp
-                    _dev.last_operation = self._state
-                    keyfobs[user.lower()][2] = timestamp
-                    keyfobs[user.lower()][3] = self._state
-                    break
 
         self._changed_by = user_name
         self._changed_timestamp = timestamp
